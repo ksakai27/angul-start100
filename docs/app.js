@@ -16,12 +16,14 @@ import {
   KANA_HINTS,
   PHRASES,
   PHRASE_CATEGORIES,
+  SOUND_RULES,
   STREAM_CHALLENGES,
   HOME_STEPS,
   HYPE_MESSAGES,
 } from "./data.js";
+import { analyzeStudyText, detectSoundTags, endsWithBatchim } from "./hangul-tools.js";
 
-const STORAGE_KEY = "hangul-start100-state-v1";
+const STORAGE_KEY = "hangul-start200-state-v2";
 const DEFAULT_STATE = {
   theme: "light",
   knownItems: [],
@@ -47,7 +49,10 @@ const ALL_VOWELS = [...BASIC_VOWELS, ...COMBINED_VOWELS];
 const ALL_CONSONANTS = [...BASIC_CONSONANTS, ...EXTRA_CONSONANTS];
 const LETTER_BY_ID = new Map(LETTER_GROUPS.map((item) => [item.id, item]));
 const LETTER_BY_SYMBOL = new Map(LETTER_GROUPS.map((item) => [item.symbol, item]));
-const PHRASE_BY_ID = new Map(PHRASES.map((phrase) => [phrase.id, phrase]));
+const STUDY_ITEMS = PHRASES.map((phrase) => enrichStudyItem(phrase));
+const PHRASE_BY_ID = new Map(STUDY_ITEMS.map((phrase) => [phrase.id, phrase]));
+const STUDY_TAG_ORDER = ["パッチム", "合成母音", "ㅇ", "濃音", "激音", "連音", "音変化", "会話形"];
+const STUDY_TAGS = STUDY_TAG_ORDER.filter((tag) => STUDY_ITEMS.some((item) => item.tags.includes(tag)));
 
 const runtime = {
   currentSection: "home",
@@ -56,6 +61,8 @@ const runtime = {
   chartVowelsMode: "basic",
   randomChartEntry: null,
   phraseCategory: "all",
+  phraseType: "all",
+  phraseTag: "all",
   phraseSearch: "",
   favoritesOnly: false,
   randomPhraseId: "",
@@ -110,8 +117,11 @@ const el = {
   phraseSearch: document.getElementById("phrase-search"),
   phraseRandom: document.getElementById("phrase-random"),
   favoritesOnly: document.getElementById("toggle-favorites-only"),
+  phraseTypeRow: document.getElementById("phrase-type-row"),
   phraseCategoryRow: document.getElementById("phrase-category-row"),
+  phraseTagRow: document.getElementById("phrase-tag-row"),
   phraseCount: document.getElementById("phrase-count"),
+  soundRuleList: document.getElementById("sound-rule-list"),
   phraseRandomCard: document.getElementById("phrase-random-card"),
   phrasesGrid: document.getElementById("phrases-grid"),
   streamStage: document.getElementById("stream-stage"),
@@ -144,7 +154,10 @@ function init() {
 
   bindEvents();
   renderHomeSteps();
+  renderPhraseTypeButtons();
   renderPhraseCategoryButtons();
+  renderPhraseTagButtons();
+  renderSoundRuleList();
   renderLetters();
   renderChart();
   renderPhrases();
@@ -337,7 +350,7 @@ function bindEvents() {
   });
 
   el.phraseRandom.addEventListener("click", () => {
-    runtime.randomPhraseId = pickRandom(PHRASES)?.id || "";
+    runtime.randomPhraseId = pickRandom(STUDY_ITEMS)?.id || "";
     renderPhraseRandomCard();
   });
 
@@ -347,11 +360,27 @@ function bindEvents() {
     renderPhrases();
   });
 
+  el.phraseTypeRow.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-phrase-type]");
+    if (!button) return;
+    runtime.phraseType = button.dataset.phraseType;
+    renderPhraseTypeButtons();
+    renderPhrases();
+  });
+
   el.phraseCategoryRow.addEventListener("click", (event) => {
     const button = event.target.closest("[data-phrase-category]");
     if (!button) return;
     runtime.phraseCategory = button.dataset.phraseCategory;
     renderPhraseCategoryButtons();
+    renderPhrases();
+  });
+
+  el.phraseTagRow.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-phrase-tag]");
+    if (!button) return;
+    runtime.phraseTag = button.dataset.phraseTag;
+    renderPhraseTagButtons();
     renderPhrases();
   });
 
@@ -370,7 +399,7 @@ function bindEvents() {
     if (runtime.streamCard?.audioText) {
       speakText(runtime.streamCard.audioText);
     } else {
-      announce("このミッションには音声がありません。ランダムフレーズかランダム文字を選んでください。", 2600);
+      announce("このミッションには音声がありません。ランダムカードかランダム文字を選んでください。", 2600);
     }
   });
 
@@ -407,15 +436,15 @@ function handlePhraseAction(event) {
 
   const action = actionButton.dataset.phraseAction;
   if (action === "speak") {
-    speakText(phrase.hangul);
+    speakText(phrase.learningText);
     markMastered(`phrase:${phrase.id}`);
     return;
   }
 
   if (action === "shadow") {
-    speakRepeated(phrase.hangul, 3);
+    speakRepeated(phrase.learningText, 3);
     markMastered(`phrase:${phrase.id}`);
-    announce(`${phrase.hangul} を3回シャドーイングします。`, 2400);
+    announce(`${phrase.learningText} を3回シャドーイングします。`, 2400);
     return;
   }
 
@@ -425,7 +454,7 @@ function handlePhraseAction(event) {
     renderPhrases();
     renderHome();
     renderProgress();
-    announce(`${phrase.hangul} のお気に入り状態を更新しました。`);
+    announce(`${phrase.learningText} のお気に入り状態を更新しました。`);
   }
 }
 
@@ -477,6 +506,10 @@ function switchSection(sectionId, updateHash = true) {
 function renderAll() {
   applyTheme();
   renderVoiceControls();
+  renderPhraseTypeButtons();
+  renderPhraseCategoryButtons();
+  renderPhraseTagButtons();
+  renderSoundRuleList();
   renderHome();
   renderLetters();
   renderChart();
@@ -510,7 +543,7 @@ function renderHome() {
 
   const dailyPhrase = getDailyPhrase();
   el.dailyPhraseCard.innerHTML = buildPhraseCardHTML(dailyPhrase, {
-    compact: false,
+    compact: true,
     highlight: true,
   });
 
@@ -832,6 +865,21 @@ function goToNextQuestion() {
   }
 }
 
+
+function renderPhraseTypeButtons() {
+  const types = [
+    { id: "all", label: "全部" },
+    { id: "phrase", label: "フレーズ" },
+    { id: "word", label: "単語" },
+  ];
+  el.phraseTypeRow.innerHTML = types
+    .map((type) => {
+      const isActive = runtime.phraseType === type.id;
+      return `<button class="chip ${isActive ? "is-active" : ""}" type="button" data-phrase-type="${escapeAttribute(type.id)}">${escapeHtml(type.label)}</button>`;
+    })
+    .join("");
+}
+
 function renderPhraseCategoryButtons() {
   const categories = ["all", ...PHRASE_CATEGORIES];
   el.phraseCategoryRow.innerHTML = categories
@@ -843,15 +891,42 @@ function renderPhraseCategoryButtons() {
     .join("");
 }
 
+function renderPhraseTagButtons() {
+  const tags = ["all", ...STUDY_TAGS];
+  el.phraseTagRow.innerHTML = tags
+    .map((tag) => {
+      const isActive = runtime.phraseTag === tag;
+      const label = tag === "all" ? "音の特徴: 全部" : tag;
+      return `<button class="chip ${isActive ? "is-active" : ""}" type="button" data-phrase-tag="${escapeAttribute(tag)}">${escapeHtml(label)}</button>`;
+    })
+    .join("");
+}
+
+function renderSoundRuleList() {
+  el.soundRuleList.innerHTML = SOUND_RULES.map((rule) => {
+    return `
+      <article class="sound-rule-card">
+        <strong>${escapeHtml(rule.title)}</strong>
+        <div class="muted">${escapeHtml(rule.detail)}</div>
+      </article>
+    `;
+  }).join("");
+}
+
 function renderPhrases() {
   el.favoritesOnly.classList.toggle("is-active", runtime.favoritesOnly);
   const phrases = getFilteredPhrases();
-  const suffix = runtime.favoritesOnly ? " / ★のみ" : "";
-  el.phraseCount.textContent = `${phrases.length}件表示中${suffix}`;
+  const activeFilters = [
+    runtime.phraseType !== "all" ? (runtime.phraseType === "word" ? "単語のみ" : "フレーズのみ") : "",
+    runtime.phraseCategory !== "all" ? runtime.phraseCategory : "",
+    runtime.phraseTag !== "all" ? runtime.phraseTag : "",
+    runtime.favoritesOnly ? "★のみ" : "",
+  ].filter(Boolean);
+  el.phraseCount.textContent = `${phrases.length} / ${STUDY_ITEMS.length} 件${activeFilters.length ? ` ・ ${activeFilters.join(" / ")}` : ""}`;
   renderPhraseRandomCard();
 
   if (!phrases.length) {
-    el.phrasesGrid.innerHTML = `<div class="empty-state panel">条件に合うフレーズがありません。</div>`;
+    el.phrasesGrid.innerHTML = `<div class="empty-state panel">条件に合うカードがありません。</div>`;
     return;
   }
 
@@ -873,8 +948,8 @@ function renderPhraseRandomCard() {
   el.phraseRandomCard.classList.remove("hidden");
   el.phraseRandomCard.innerHTML = `
     <div class="card-meta">
-      <span class="category-pill">ランダムフレーズ</span>
-      <span class="meta-pill">${escapeHtml(phrase.category)}</span>
+      <span class="category-pill">ランダム1枚</span>
+      <span class="meta-pill">${escapeHtml(phrase.category)} / ${escapeHtml(phrase.type === "word" ? "単語" : "フレーズ")}</span>
     </div>
     ${buildPhraseCardHTML(phrase, { compact: false, highlight: true })}
   `;
@@ -909,7 +984,7 @@ function renderStreamCard() {
   el.streamHints.innerHTML = `
     <div class="random-card">視聴者向けひとこと: 「意味だけ先に見せて、コメントで予想してもらおう」</div>
     <div class="random-card">現在のベストコンボ: ${appState.quiz.bestCombo}</div>
-    <div class="random-card">お気に入りフレーズ数: ${phraseFavorites}</div>
+    <div class="random-card">お気に入りカード数: ${phraseFavorites}</div>
   `;
 }
 
@@ -929,16 +1004,16 @@ function setRandomStreamMission() {
 }
 
 function setRandomStreamPhrase() {
-  const phrase = pickRandom(PHRASES);
+  const phrase = pickRandom(STUDY_ITEMS);
   runtime.streamReveal = false;
   runtime.streamCard = {
     kind: "phrase",
-    title: "ランダムフレーズ",
-    tag: phrase.category,
-    main: phrase.hangul,
-    sub: phrase.kana,
-    reveal: `${phrase.meaning} / ${phrase.roman}`,
-    audioText: phrase.hangul,
+    title: phrase.type === "word" ? "ランダム単語" : "ランダムカード",
+    tag: `${phrase.category} / ${phrase.type === "word" ? "単語" : "フレーズ"}`,
+    main: phrase.learningText,
+    sub: phrase.meaning,
+    reveal: `${phrase.displayReading} / ${phrase.soundNotes[0] || phrase.meaning}`,
+    audioText: phrase.learningText,
   };
   renderStreamCard();
 }
@@ -1001,11 +1076,11 @@ function renderProgress() {
   el.phraseCategoryStats.innerHTML = `
     <div class="category-list">
       ${PHRASE_CATEGORIES.map((category) => {
-        const total = PHRASES.filter((phrase) => phrase.category === category).length;
-        const favorites = PHRASES.filter(
+        const total = STUDY_ITEMS.filter((phrase) => phrase.category === category).length;
+        const favorites = STUDY_ITEMS.filter(
           (phrase) => phrase.category === category && appState.favoritePhrases.includes(phrase.id)
         ).length;
-        const mastered = PHRASES.filter(
+        const mastered = STUDY_ITEMS.filter(
           (phrase) => phrase.category === category && appState.masteredItems.includes(`phrase:${phrase.id}`)
         ).length;
         return `
@@ -1121,50 +1196,60 @@ function buildAudioQuestions() {
 }
 
 function buildPhraseQuestions() {
-  return PHRASES.map((phrase, index) => {
+  return STUDY_ITEMS.map((phrase, index) => {
+    const quizText = phrase.learningText;
+    const detailText = phrase.spoken ? `基本形: ${phrase.hangul}` : phrase.displayReading;
     const meaningDirection = index % 2 === 0;
     if (meaningDirection) {
-      const distractors = sampleWithout(PHRASES.filter((candidate) => candidate.id !== phrase.id), 3);
+      const distractors = sampleWithout(STUDY_ITEMS.filter((candidate) => candidate.id !== phrase.id), 3);
       const options = shuffle([
-        { id: phrase.id, label: phrase.hangul, detail: phrase.kana },
-        ...distractors.map((candidate) => ({ id: candidate.id, label: candidate.hangul, detail: candidate.kana })),
+        { id: phrase.id, label: quizText, detail: detailText },
+        ...distractors.map((candidate) => ({
+          id: candidate.id,
+          label: candidate.learningText,
+          detail: candidate.spoken ? `基本形: ${candidate.hangul}` : candidate.displayReading,
+        })),
       ]);
       return {
         id: `phrase-q-${phrase.id}`,
         ask: "この意味に合う韓国語は？",
         main: phrase.meaning,
         mainClass: "quiz-main-text",
-        sub: phrase.category,
+        sub: `${phrase.category} / ${phrase.type === "word" ? "単語" : "フレーズ"}`,
         options,
         correctId: phrase.id,
-        correctLabel: phrase.hangul,
-        explanation: `${phrase.hangul} (${phrase.kana}) = ${phrase.meaning}`,
-        tip: "意味 → ハングル → 音声 の順で見ると覚えやすいです。",
-        audioText: phrase.hangul,
+        correctLabel: quizText,
+        explanation: `${quizText} = ${phrase.meaning} / ${phrase.soundNotes[0] || phrase.displayReading}`,
+        tip: phrase.type === "word" ? "単語は会話形も一緒に覚えると話しやすくなります。" : "意味 → ハングル → 音声 の順で見ると覚えやすいです。",
+        audioText: phrase.learningText,
         masteryId: `phrase:${phrase.id}`,
-        mistakeLabel: `${phrase.meaning} → ${phrase.hangul}`,
+        mistakeLabel: `${phrase.meaning} → ${quizText}`,
       };
     }
 
-    const distractors = sampleWithout(PHRASES.filter((candidate) => candidate.id !== phrase.id), 3);
+    const distractors = sampleWithout(STUDY_ITEMS.filter((candidate) => candidate.id !== phrase.id), 3);
     const options = shuffle([
-      { id: phrase.id, label: phrase.meaning, detail: phrase.category },
-      ...distractors.map((candidate) => ({ id: candidate.id, label: candidate.meaning, detail: candidate.category })),
+      { id: phrase.id, label: phrase.meaning, detail: `${phrase.category} / ${phrase.type === "word" ? "単語" : "フレーズ"}` },
+      ...distractors.map((candidate) => ({
+        id: candidate.id,
+        label: candidate.meaning,
+        detail: `${candidate.category} / ${candidate.type === "word" ? "単語" : "フレーズ"}`,
+      })),
     ]);
     return {
       id: `phrase-q-${phrase.id}`,
       ask: "このハングルの意味は？",
-      main: phrase.hangul,
+      main: quizText,
       mainClass: "quiz-main-hangul",
-      sub: phrase.kana,
+      sub: detailText,
       options,
       correctId: phrase.id,
       correctLabel: phrase.meaning,
-      explanation: `${phrase.hangul} (${phrase.kana}) = ${phrase.meaning}`,
-      tip: "音を聞いてから意味を確認すると、配信でも覚えた感が出やすいです。",
-      audioText: phrase.hangul,
+      explanation: `${quizText} = ${phrase.meaning} / ${phrase.soundNotes[0] || phrase.displayReading}`,
+      tip: "音を聞いてから意味を確認すると、会話ごと覚えやすくなります。",
+      audioText: phrase.learningText,
       masteryId: `phrase:${phrase.id}`,
-      mistakeLabel: `${phrase.hangul} → ${phrase.meaning}`,
+      mistakeLabel: `${quizText} → ${phrase.meaning}`,
     };
   });
 }
@@ -1225,34 +1310,60 @@ function getFilteredLetters() {
   }
 }
 
+
 function getFilteredPhrases() {
   const keyword = runtime.phraseSearch.toLowerCase();
-  return PHRASES.filter((phrase) => {
+  return STUDY_ITEMS.filter((phrase) => {
     const categoryPass = runtime.phraseCategory === "all" || phrase.category === runtime.phraseCategory;
+    const typePass = runtime.phraseType === "all" || phrase.type === runtime.phraseType;
+    const tagPass = runtime.phraseTag === "all" || phrase.tags.includes(runtime.phraseTag);
     const favoritePass = !runtime.favoritesOnly || appState.favoritePhrases.includes(phrase.id);
     const keywordPass =
       !keyword ||
-      [phrase.hangul, phrase.kana, phrase.roman, phrase.meaning, phrase.category]
+      [
+        phrase.hangul,
+        phrase.learningText,
+        phrase.meaning,
+        phrase.category,
+        phrase.type,
+        phrase.baseRoman,
+        phrase.roman,
+        phrase.spokenRoman,
+        phrase.displayReading,
+        phrase.hearingText,
+        phrase.example || "",
+        phrase.exampleMeaning || "",
+        phrase.tags.join(" "),
+        phrase.soundNotes.join(" "),
+      ]
         .join(" ")
         .toLowerCase()
         .includes(keyword);
-    return categoryPass && favoritePass && keywordPass;
+    return categoryPass && typePass && tagPass && favoritePass && keywordPass;
   });
 }
 
 function buildPhraseCardHTML(phrase, options = {}) {
   const favorite = appState.favoritePhrases.includes(phrase.id);
-  const highlightClass = options.highlight ? "is-favorite" : "";
+  const typeLabel = phrase.type === "word" ? "単語" : "フレーズ";
+  const highlightClass = options.highlight ? "is-highlight" : "";
+  const compact = Boolean(options.compact);
+  const tags = phrase.tags.filter((tag) => !["フレーズ", "単語"].includes(tag)).slice(0, 5);
+  const mainHangul = phrase.learningText || phrase.hangul;
+
   return `
     <article class="phrase-card ${favorite ? "is-favorite" : ""} ${highlightClass}">
       <div class="phrase-top">
         <span class="category-pill">${escapeHtml(phrase.category)}</span>
-        <span class="meta-pill">${favorite ? "★ お気に入り" : "フレーズ"}</span>
+        <span class="meta-pill">${favorite ? "★ お気に入り" : escapeHtml(typeLabel)}</span>
       </div>
-      <div class="phrase-hangul">${escapeHtml(phrase.hangul)}</div>
-      <div class="phrase-reading">${escapeHtml(phrase.kana)}</div>
-      <div class="muted">${escapeHtml(phrase.roman)}</div>
-      <div>${escapeHtml(phrase.meaning)}</div>
+      <div class="phrase-hangul">${escapeHtml(mainHangul)}</div>
+      ${phrase.spoken ? `<div class="spoken-pill">辞書の形: <strong>${escapeHtml(phrase.hangul)}</strong> → 会話でよく使う形: <strong>${escapeHtml(phrase.spoken)}</strong></div>` : ""}
+      <div class="phrase-meaning">${escapeHtml(phrase.meaning)}</div>
+      <div class="phrase-reading">alphabet: ${escapeHtml(phrase.displayReading || phrase.roman)}</div>
+      ${phrase.spokenRoman && phrase.spokenRoman !== phrase.roman ? `<div class="muted">sound: ${escapeHtml(phrase.spokenRoman)} / ${escapeHtml(phrase.hearingText || phrase.learningText)}</div>` : ""}
+      ${tags.length ? `<div class="tag-pill-row">${tags.map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+      ${compact ? `<div class="muted">${escapeHtml(phrase.soundNotes[0] || "部品どおりにゆっくり読めばOKです。")}</div>` : buildPhraseDetailHTML(phrase)}
       <div class="card-actions">
         <button class="small-btn" type="button" data-phrase-action="speak" data-phrase-id="${escapeAttribute(phrase.id)}">🔊 再生</button>
         <button class="small-btn" type="button" data-phrase-action="shadow" data-phrase-id="${escapeAttribute(phrase.id)}">🎤 3回シャドー</button>
@@ -1262,10 +1373,112 @@ function buildPhraseCardHTML(phrase, options = {}) {
   `;
 }
 
+function buildPhraseDetailHTML(phrase) {
+  return `
+    <details class="phrase-details">
+      <summary>音の部品を見る</summary>
+      <div class="phrase-detail-stack">
+        <div class="detail-line">
+          <strong>今読む形</strong>
+          <span>${escapeHtml(phrase.learningText)} / ${escapeHtml(phrase.spokenRoman || phrase.roman)}</span>
+        </div>
+        ${phrase.spoken ? `<div class="detail-line"><strong>辞書の形</strong><span>${escapeHtml(phrase.hangul)} / ${escapeHtml(phrase.baseRoman)}</span></div>` : ""}
+        ${phrase.spoken ? `<div class="detail-block"><strong>会話でこう変わる</strong><div>${escapeHtml(phrase.hangul)} → ${escapeHtml(phrase.spoken)}</div><div class="muted">まず辞書の形を見て、次に会話形を声に出すと話し言葉ごと覚えやすくなります。</div></div>` : ""}
+        <div class="detail-block">
+          <strong>今読む形の部品</strong>
+          <div class="sound-chip-grid">
+            ${phrase.study.syllables.map((syllable) => `
+              <div class="sound-chip">
+                <strong>${escapeHtml(syllable.syllable)}</strong>
+                <span>${escapeHtml(syllable.jamoText)}</span>
+                <small>${escapeHtml(`${syllable.latinText} = ${syllable.roman}`)}</small>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+        ${phrase.spoken ? `<div class="detail-block"><strong>辞書の形の部品</strong><div class="sound-chip-grid">${phrase.baseStudy.syllables.map((syllable) => `
+            <div class="sound-chip">
+              <strong>${escapeHtml(syllable.syllable)}</strong>
+              <span>${escapeHtml(syllable.jamoText)}</span>
+              <small>${escapeHtml(`${syllable.latinText} = ${syllable.roman}`)}</small>
+            </div>
+          `).join("")}</div></div>` : ""}
+        <div class="detail-block">
+          <strong>なぜそう聞こえる？</strong>
+          <ul class="detail-list">
+            ${phrase.soundNotes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}
+          </ul>
+        </div>
+        ${buildPhraseExampleHTML(phrase)}
+      </div>
+    </details>
+  `;
+}
+
+function buildPhraseExampleHTML(phrase) {
+  if (!phrase.example) return "";
+  return `
+    <div class="detail-block">
+      <strong>ひとこと練習</strong>
+      <div class="example-hangul">${escapeHtml(phrase.example)}</div>
+      <div class="muted">${escapeHtml(phrase.exampleMeaning || "")}</div>
+    </div>
+  `;
+}
+
 function getDailyPhrase() {
   const today = getTodayKey();
-  const index = [...today].reduce((sum, char) => sum + char.charCodeAt(0), 0) % PHRASES.length;
-  return PHRASES[index];
+  const index = [...today].reduce((sum, char) => sum + char.charCodeAt(0), 0) % STUDY_ITEMS.length;
+  return STUDY_ITEMS[index];
+}
+
+
+
+function enrichStudyItem(item) {
+  const learningText = item.spoken || item.hangul;
+  const baseStudy = analyzeStudyText(item.hangul);
+  const study = analyzeStudyText(learningText);
+  const generatedExample = getGeneratedWordExample(item);
+  const soundNotes = uniqueStrings([
+    ...study.notes,
+    item.customNote || "",
+    study.spokenText !== learningText ? `会話では ${study.spokenText} に近く聞こえることがあります。` : "",
+    !study.notes.length && !item.customNote ? "特別な音変化は少ないので、部品どおりにゆっくり読めばOKです。" : "",
+  ]);
+
+  return {
+    ...item,
+    learningText,
+    baseRoman: baseStudy.writtenRoman,
+    roman: study.writtenRoman,
+    spokenRoman: study.spokenRoman,
+    displayReading: study.syllables.map((syllable) => syllable.roman).join(" · "),
+    hearingText: study.spokenText !== learningText ? study.spokenText : "",
+    baseStudy,
+    study,
+    soundNotes,
+    tags: uniqueStrings([
+      ...detectSoundTags(item.hangul, baseStudy, { type: item.type }),
+      ...detectSoundTags(learningText, study, { type: item.type, spoken: item.spoken }),
+    ]),
+    example: item.example || generatedExample.text,
+    exampleMeaning: item.exampleMeaning || generatedExample.meaning,
+  };
+}
+
+function getGeneratedWordExample(item) {
+  if (item.type !== "word" || item.category !== "基本単語") {
+    return { text: "", meaning: "" };
+  }
+  const copula = endsWithBatchim(item.hangul) ? "이에요" : "예요";
+  return {
+    text: `${item.hangul}${copula}`,
+    meaning: `${item.meaning}です`,
+  };
+}
+
+function uniqueStrings(values) {
+  return [...new Set(values.filter(Boolean))];
 }
 
 function loadVoices() {

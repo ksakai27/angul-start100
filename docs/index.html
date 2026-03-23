@@ -2,11 +2,17 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ハングル・スタート100</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#5e67ff" />
+    <meta name="apple-mobile-web-app-title" content="ハングル・スタート200" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <title>ハングル・スタート200</title>
     <meta
       name="description"
-      content="韓国語の超初心者向け。母音・子音・組み合わせ・100フレーズ・音声・クイズ・配信モードをまとめた学習アプリ。"
+      content="韓国語の超初心者向け。母音・子音・組み合わせ・フレーズと単語200・音声・クイズ・配信モードをまとめた学習アプリ。"
     />
     <link rel="stylesheet" href="./styles.css" />
   </head>
@@ -16,8 +22,8 @@
         <div class="brand-wrap">
           <div class="brand-mark" aria-hidden="true">한</div>
           <div>
-            <p class="eyebrow">GitHub Pages対応 / PC・スマホOK / 配信向け</p>
-            <h1 id="app-title">ハングル・スタート100</h1>
+            <p class="eyebrow">GitHub Pages対応 / スマホ学習向け / 配信向け</p>
+            <h1 id="app-title">ハングル・スタート200</h1>
           </div>
         </div>
         <div class="header-actions">
@@ -30,7 +36,7 @@
         <button class="nav-tab" data-section-target="letters" type="button">文字</button>
         <button class="nav-tab" data-section-target="chart" type="button">組み合わせ表</button>
         <button class="nav-tab" data-section-target="quiz" type="button">クイズ</button>
-        <button class="nav-tab" data-section-target="phrases" type="button">100フレーズ</button>
+        <button class="nav-tab" data-section-target="phrases" type="button">200カード</button>
         <button class="nav-tab" data-section-target="stream" type="button">配信モード</button>
         <button class="nav-tab" data-section-target="progress" type="button">進捗</button>
       </nav>
@@ -42,9 +48,9 @@
           <div class="hero panel">
             <div class="hero-copy">
               <p class="eyebrow">超初心者でも順番どおりに進めればOK</p>
-              <h2>母音 → 子音 → 組み合わせ → 100フレーズ</h2>
+              <h2>母音 → 子音 → 組み合わせ → フレーズ・単語200</h2>
               <p>
-                カタカナは入口として使い、必ず音声でも確認する設計です。外部サービスに依存しないので、GitHub Pagesへそのまま置けばPCでもスマホでも使えます。
+                見た目・音・部品を同時に追える設計です。スマホでは片手で進めやすい導線に寄せ、外部サービスなしで GitHub Pages にそのまま置けます。
               </p>
               <div class="hero-actions">
                 <button class="primary" type="button" data-jump-section="letters">母音から始める</button>
@@ -104,7 +110,7 @@
 
           <div class="grid two-cols">
             <section class="panel">
-              <h3>今日のフレーズ</h3>
+              <h3>今日の1枚</h3>
               <div id="daily-phrase-card"></div>
             </section>
             <section class="panel">
@@ -207,8 +213,8 @@
         <section id="phrases" class="page">
           <div class="page-head">
             <div>
-              <p class="eyebrow">100個のやさしい言い回し</p>
-              <h2>フレーズで意味と発音をセット学習</h2>
+              <p class="eyebrow">200枚の学習カードで会話と読みを一気に覚える</p>
+              <h2>フレーズ・単語200</h2>
             </div>
           </div>
 
@@ -217,15 +223,22 @@
               <input
                 id="phrase-search"
                 type="search"
-                placeholder="意味、ハングル、読み方、ローマ字で検索"
+                placeholder="意味、ハングル、アルファベット、会話形で検索"
                 autocomplete="off"
               />
-              <button id="phrase-random" class="secondary" type="button">ランダム1個</button>
+              <button id="phrase-random" class="secondary" type="button">ランダム1枚</button>
               <button id="toggle-favorites-only" class="secondary" type="button">★だけ表示</button>
             </div>
+            <div id="phrase-type-row" class="toolbar wrap"></div>
             <div id="phrase-category-row" class="toolbar wrap"></div>
+            <div id="phrase-tag-row" class="toolbar wrap"></div>
             <p id="phrase-count" class="muted"></p>
           </div>
+
+          <section class="panel">
+            <h3>このページの見方</h3>
+            <div id="sound-rule-list" class="sound-rule-list"></div>
+          </section>
 
           <div id="phrase-random-card" class="panel hidden"></div>
           <div id="phrases-grid" class="phrase-grid"></div>
@@ -243,7 +256,7 @@
             <section class="panel">
               <div class="stream-toolbar">
                 <button id="new-stream-mission" class="primary" type="button">新しいミッション</button>
-                <button id="stream-random-phrase" class="secondary" type="button">ランダムフレーズ</button>
+                <button id="stream-random-phrase" class="secondary" type="button">ランダムカード</button>
                 <button id="stream-random-syllable" class="secondary" type="button">ランダム文字</button>
                 <button id="stream-reveal" class="secondary" type="button">答えを表示</button>
                 <button id="stream-audio" class="secondary" type="button">🔊 再生</button>
@@ -288,7 +301,7 @@
               <p id="progress-best-combo" class="big-number">0</p>
             </article>
             <article class="panel stat-card">
-              <h3>お気に入りフレーズ</h3>
+              <h3>お気に入りカード</h3>
               <p id="progress-favorites" class="big-number">0</p>
             </article>
           </div>
@@ -299,7 +312,7 @@
               <div id="mistake-list"></div>
             </section>
             <section class="panel">
-              <h3>カテゴリ別フレーズ数</h3>
+              <h3>カテゴリ別カード数</h3>
               <div id="phrase-category-stats"></div>
             </section>
           </div>

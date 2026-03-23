@@ -1,0 +1,22 @@
+{
+  "name": "ハングル・スタート200",
+  "short_name": "ハングル200",
+  "description": "韓国語超初心者向け。文字、組み合わせ、音声、フレーズと単語200を学べる学習アプリ。",
+  "lang": "ja",
+  "start_url": "./index.html#home",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#5e67ff",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

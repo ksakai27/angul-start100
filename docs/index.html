@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ハングル・スタート100</title>
+    <meta
+      name="description"
+      content="韓国語の超初心者向け。母音・子音・組み合わせ・100フレーズ・音声・クイズ・配信モードをまとめた学習アプリ。"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="site-header panel">
+        <div class="brand-wrap">
+          <div class="brand-mark" aria-hidden="true">한</div>
+          <div>
+            <p class="eyebrow">GitHub Pages対応 / PC・スマホOK / 配信向け</p>
+            <h1 id="app-title">ハングル・スタート100</h1>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="theme-toggle" class="secondary" type="button">🌙 ダーク</button>
+        </div>
+      </header>
+
+      <nav class="nav-tabs panel" aria-label="メインメニュー">
+        <button class="nav-tab is-active" data-section-target="home" type="button">ホーム</button>
+        <button class="nav-tab" data-section-target="letters" type="button">文字</button>
+        <button class="nav-tab" data-section-target="chart" type="button">組み合わせ表</button>
+        <button class="nav-tab" data-section-target="quiz" type="button">クイズ</button>
+        <button class="nav-tab" data-section-target="phrases" type="button">100フレーズ</button>
+        <button class="nav-tab" data-section-target="stream" type="button">配信モード</button>
+        <button class="nav-tab" data-section-target="progress" type="button">進捗</button>
+      </nav>
+
+      <div id="global-message" class="global-message" aria-live="polite"></div>
+
+      <main class="content">
+        <section id="home" class="page is-active">
+          <div class="hero panel">
+            <div class="hero-copy">
+              <p class="eyebrow">超初心者でも順番どおりに進めればOK</p>
+              <h2>母音 → 子音 → 組み合わせ → 100フレーズ</h2>
+              <p>
+                カタカナは入口として使い、必ず音声でも確認する設計です。外部サービスに依存しないので、GitHub Pagesへそのまま置けばPCでもスマホでも使えます。
+              </p>
+              <div class="hero-actions">
+                <button class="primary" type="button" data-jump-section="letters">母音から始める</button>
+                <button class="secondary" type="button" data-start-quiz="vowels">すぐ母音クイズ</button>
+                <button class="secondary" type="button" data-jump-section="stream">配信モードへ</button>
+              </div>
+            </div>
+            <aside class="hero-side">
+              <div class="mini-stat">
+                <span id="streak-days">0</span>
+                <small>連続学習日数</small>
+              </div>
+              <div class="mini-stat">
+                <span id="home-accuracy">0%</span>
+                <small>クイズ正答率</small>
+              </div>
+              <div class="mini-stat">
+                <span id="home-best-combo">0</span>
+                <small>ベストコンボ</small>
+              </div>
+              <div class="mini-stat">
+                <span id="home-mastered">0</span>
+                <small>覚えた項目</small>
+              </div>
+            </aside>
+          </div>
+
+          <div class="grid two-cols">
+            <section class="panel">
+              <h3>音声設定</h3>
+              <p class="muted">
+                Korean / ko-KR の音声が見つかれば自動で優先します。ない場合はブラウザ標準の音声にフォールバックします。
+              </p>
+              <label class="field">
+                <span>音声</span>
+                <select id="voice-select"></select>
+              </label>
+              <label class="field">
+                <span>スピード <strong id="rate-value">0.95</strong></span>
+                <input id="rate-range" type="range" min="0.7" max="1.2" step="0.05" value="0.95" />
+              </label>
+              <label class="checkbox-row">
+                <input id="autoplay-audio" type="checkbox" />
+                <span>クイズで音声を自動再生する</span>
+              </label>
+              <div class="button-row">
+                <button id="test-audio" class="secondary" type="button">안녕하세요 を再生</button>
+              </div>
+              <p id="voice-status" class="muted"></p>
+            </section>
+
+            <section class="panel">
+              <h3>今日のスタートルート</h3>
+              <div id="home-steps" class="step-list"></div>
+            </section>
+          </div>
+
+          <div class="grid two-cols">
+            <section class="panel">
+              <h3>今日のフレーズ</h3>
+              <div id="daily-phrase-card"></div>
+            </section>
+            <section class="panel">
+              <h3>配信で映える使い方</h3>
+              <ul class="tip-list">
+                <li>意味だけ先に見せて、視聴者にハングルを予想してもらう</li>
+                <li>音声を流してから自分でもう一度まねする</li>
+                <li>10問ノーミスや3回シャドーイングで企画化する</li>
+                <li>「틀려도 괜찮아요」を合言葉にして場を和ませる</li>
+              </ul>
+            </section>
+          </div>
+        </section>
+
+        <section id="letters" class="page">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">まずは形と音を一致させる</p>
+              <h2>母音・子音を一枚ずつ確認</h2>
+            </div>
+          </div>
+
+          <div class="toolbar wrap">
+            <button class="chip is-active" type="button" data-letter-filter="all">全部</button>
+            <button class="chip" type="button" data-letter-filter="vowels-basic">基本母音</button>
+            <button class="chip" type="button" data-letter-filter="vowels-combined">合成母音</button>
+            <button class="chip" type="button" data-letter-filter="consonants-basic">基本子音</button>
+            <button class="chip" type="button" data-letter-filter="consonants-extra">発展子音</button>
+            <button class="chip" type="button" data-letter-filter="known">覚えたもの</button>
+          </div>
+          <p class="muted">カタカナはあくまで目安です。必ず 🔊 で耳でも確認してください。</p>
+          <div id="letters-grid" class="letters-grid"></div>
+        </section>
+
+        <section id="chart" class="page">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">日本語のあいうえお表みたいに見る</p>
+              <h2>子音 × 母音の組み合わせ表</h2>
+            </div>
+          </div>
+
+          <div class="grid two-cols">
+            <section class="panel">
+              <h3>表の設定</h3>
+              <div class="subhead">子音の範囲</div>
+              <div class="toolbar wrap">
+                <button class="chip is-active" type="button" data-chart-initials="basic">基本だけ</button>
+                <button class="chip" type="button" data-chart-initials="all">全部</button>
+              </div>
+              <div class="subhead">母音の範囲</div>
+              <div class="toolbar wrap">
+                <button class="chip is-active" type="button" data-chart-vowels="basic">基本だけ</button>
+                <button class="chip" type="button" data-chart-vowels="all">全部</button>
+              </div>
+              <p class="muted">行が子音、列が母音です。セルを押すとその文字を読み上げます。</p>
+            </section>
+            <section class="panel">
+              <h3>ランダム1文字</h3>
+              <div id="chart-random-card"></div>
+            </section>
+          </div>
+
+          <div class="panel table-panel">
+            <div id="chart-wrap" class="table-wrap"></div>
+          </div>
+        </section>
+
+        <section id="quiz" class="page">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">短く回して反復する</p>
+              <h2>クイズで定着</h2>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="toolbar stack-mobile">
+              <div class="toolbar wrap">
+                <button class="chip is-active" type="button" data-quiz-mode="vowels">母音</button>
+                <button class="chip" type="button" data-quiz-mode="consonants">子音</button>
+                <button class="chip" type="button" data-quiz-mode="syllables">組み合わせ</button>
+                <button class="chip" type="button" data-quiz-mode="audio">音だけで当てる</button>
+                <button class="chip" type="button" data-quiz-mode="phrases">フレーズ</button>
+              </div>
+              <div class="toolbar wrap">
+                <button class="chip is-active" type="button" data-quiz-total="10">10問</button>
+                <button class="chip" type="button" data-quiz-total="20">20問</button>
+              </div>
+              <button id="start-quiz" class="primary" type="button">この設定で始める</button>
+            </div>
+            <p class="muted">数字キー 1〜4 で回答、スペースで音声リプレイ、Enter で次へ。</p>
+          </div>
+
+          <div id="quiz-stage" class="panel quiz-stage">
+            <div id="quiz-empty" class="empty-state">モードを選んで「この設定で始める」を押してください。</div>
+          </div>
+        </section>
+
+        <section id="phrases" class="page">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">100個のやさしい言い回し</p>
+              <h2>フレーズで意味と発音をセット学習</h2>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="search-row">
+              <input
+                id="phrase-search"
+                type="search"
+                placeholder="意味、ハングル、読み方、ローマ字で検索"
+                autocomplete="off"
+              />
+              <button id="phrase-random" class="secondary" type="button">ランダム1個</button>
+              <button id="toggle-favorites-only" class="secondary" type="button">★だけ表示</button>
+            </div>
+            <div id="phrase-category-row" class="toolbar wrap"></div>
+            <p id="phrase-count" class="muted"></p>
+          </div>
+
+          <div id="phrase-random-card" class="panel hidden"></div>
+          <div id="phrases-grid" class="phrase-grid"></div>
+        </section>
+
+        <section id="stream" class="page">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">Twitch / YouTube 配信を意識した大きめ表示</p>
+              <h2>配信モード</h2>
+            </div>
+          </div>
+
+          <div class="grid two-cols">
+            <section class="panel">
+              <div class="stream-toolbar">
+                <button id="new-stream-mission" class="primary" type="button">新しいミッション</button>
+                <button id="stream-random-phrase" class="secondary" type="button">ランダムフレーズ</button>
+                <button id="stream-random-syllable" class="secondary" type="button">ランダム文字</button>
+                <button id="stream-reveal" class="secondary" type="button">答えを表示</button>
+                <button id="stream-audio" class="secondary" type="button">🔊 再生</button>
+              </div>
+              <div id="stream-stage" class="stream-stage"></div>
+            </section>
+
+            <section class="panel">
+              <h3>配信補助</h3>
+              <div class="timer-box">
+                <div id="stream-timer" class="timer-value">15</div>
+                <div class="timer-actions">
+                  <button class="secondary" type="button" data-stream-timer="15">15秒</button>
+                  <button class="secondary" type="button" data-stream-timer="30">30秒</button>
+                  <button id="stop-stream-timer" class="secondary" type="button">停止</button>
+                </div>
+              </div>
+              <div id="stream-hints" class="stream-hints"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="progress" class="page">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">ここまでの学習履歴</p>
+              <h2>進捗</h2>
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            <article class="panel stat-card">
+              <h3>総回答数</h3>
+              <p id="progress-answered" class="big-number">0</p>
+            </article>
+            <article class="panel stat-card">
+              <h3>正答率</h3>
+              <p id="progress-accuracy" class="big-number">0%</p>
+            </article>
+            <article class="panel stat-card">
+              <h3>ベストコンボ</h3>
+              <p id="progress-best-combo" class="big-number">0</p>
+            </article>
+            <article class="panel stat-card">
+              <h3>お気に入りフレーズ</h3>
+              <p id="progress-favorites" class="big-number">0</p>
+            </article>
+          </div>
+
+          <div class="grid two-cols">
+            <section class="panel">
+              <h3>最近まちがえた項目</h3>
+              <div id="mistake-list"></div>
+            </section>
+            <section class="panel">
+              <h3>カテゴリ別フレーズ数</h3>
+              <div id="phrase-category-stats"></div>
+            </section>
+          </div>
+
+          <div class="panel">
+            <h3>進捗をリセット</h3>
+            <p class="muted">ローカル保存している学習記録だけを消します。コード本体は消えません。</p>
+            <button id="reset-progress" class="danger" type="button">学習記録をリセット</button>
+          </div>
+        </section>
+      </main>
+
+      <div id="live-region" class="visually-hidden" aria-live="polite"></div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
